@@ -28,16 +28,6 @@ const dist = {
     fonts: 'dist/fonts',
 };
 
-// Створення хешів для файлів
-gulp.task('hash', function () {
-    return gulp.src(['dist/**/*.{css,js}']) // Виберіть файли, для яких потрібно створити хеші
-        .pipe(rev()) // Генерувати унікальний хеш для файлів
-        .pipe(gulp.dest('dist')) // Зберегти файли з хешами в той же каталог
-        .pipe(rev.manifest()) // Створити файл мапування хешів
-        .pipe(gulp.dest('dist')); // Зберегти файл мапування в каталозі
-});
-
-
 // Завдання для обробки стилів (Sass, Autoprefixer, зведення в один файл, мініфікація)
 gulp.task('styles', function () {
     return gulp.src(src.sass)
@@ -47,16 +37,6 @@ gulp.task('styles', function () {
         .pipe(minifyCSS())
         .pipe(gulp.dest(dist.css));
 });
-
-
-gulp.task('update-references', function () {
-    const manifest = gulp.src('dist/rev-manifest.json');
-
-    return gulp.src('src/index.html') // Змініть шлях до вашого HTML-файлу
-        .pipe(revReplace({ manifest: manifest }))
-        .pipe(gulp.dest('./')); // Зберегти оновлений HTML з підставою хешів
-});
-
 
 // Завдання для обробки JavaScript (зведення в один файл, мініфікація)
 gulp.task('scripts', function () {
@@ -73,19 +53,41 @@ gulp.task('images', function () {
         .pipe(gulp.dest(dist.images));
 });
 
+// Завдання для створення версійних файлів
+gulp.task('hash', function () {
+    return gulp.src(['dist/**/*.{css,js}'])
+        .pipe(rev())
+        .pipe(gulp.dest('dist'))
+        .pipe(rev.manifest('manifest.json', {
+            merge: true,
+        }))
+        .pipe(gulp.dest('./'))
+        .pipe(gulp.dest('dist'));
+});
+
+
+// Завдання для оновлення версійних посилань в HTML
+gulp.task('update-references', function () {
+    const manifest = gulp.src('manifest.json');
+
+    return gulp.src('src/index.html')
+        .pipe(revReplace({ manifest: manifest }))
+        .pipe(gulp.dest('dist'));
+});
+
+// Завдання для мініфікації версійного HTML
+gulp.task('minify-html', function () {
+    return gulp.src('dist/index.html')
+        .pipe(htmlmin({ collapseWhitespace: true, removeComments: true }))
+        .pipe(gulp.dest('./'));
+});
+
 // Запуск слідкування за змінами
 gulp.task('watch', function () {
     gulp.watch(src.sass, gulp.series('styles'));
     gulp.watch(src.js, gulp.series('scripts'));
     gulp.watch(src.images, gulp.series('images'));
     // Додайте інші слідкуючі завдання, якщо потрібно
-});
-
-// Завдання для мініфікації HTML
-gulp.task('minify-html', function () {
-    return gulp.src(src.html)
-        .pipe(htmlmin({ collapseWhitespace: true, removeComments: true })) // Опції для мініфікації
-        .pipe(gulp.dest('./')); // Зберегти мініфіковані HTML файли в корені сайту
 });
 
 // Завдання за замовчуванням
