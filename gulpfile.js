@@ -1,8 +1,6 @@
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const gulp = require('gulp');
-import rev from 'gulp-rev';
-const revReplace = require('gulp-rev-replace');
 const sass = require('gulp-sass')(require('sass'));
 const concat = require('gulp-concat');
 const autoprefixer = require('gulp-autoprefixer');
@@ -10,6 +8,7 @@ const minifyCSS = require('gulp-clean-css');
 const minifyJS = require('gulp-uglify');
 import imagemin from 'gulp-imagemin';
 import htmlmin from 'gulp-htmlmin';
+const browserSync = require('browser-sync').create();
 
 // Шляхи до вихідних файлів
 const src = {
@@ -27,6 +26,16 @@ const dist = {
     images: 'dist/img',
     fonts: 'dist/fonts',
 };
+
+// Завдання для запуску сервера та синхронізації браузера
+gulp.task('browser-sync', function () {
+    browserSync.init({
+        server: {
+            baseDir: './' // Вказати кореневу теку сервера
+        },
+        port: 3000 // Вказати номер порту
+    });
+});
 
 // Завдання для обробки стилів (Sass, Autoprefixer, зведення в один файл, мініфікація)
 gulp.task('styles', function () {
@@ -53,45 +62,24 @@ gulp.task('images', function () {
         .pipe(gulp.dest(dist.images));
 });
 
-// Завдання для створення версійних файлів
-gulp.task('hash', function () {
-    return gulp.src(['dist/**/*.{css,js}'])
-        .pipe(rev())
-        .pipe(gulp.dest('dist'))
-        .pipe(rev.manifest('manifest.json', {
-            merge: true,
-        }))
-        .pipe(gulp.dest('./'))
-        .pipe(gulp.dest('dist'));
-});
-
-
-// Завдання для оновлення версійних посилань в HTML
-gulp.task('update-references', function () {
-    const manifest = gulp.src('manifest.json');
-
-    return gulp.src('src/index.html')
-        .pipe(revReplace({ manifest: manifest }))
-        .pipe(gulp.dest('dist'));
-});
-
 // Завдання для мініфікації версійного HTML
 gulp.task('minify-html', function () {
-    return gulp.src('dist/index.html')
+    return gulp.src(src.html)
         .pipe(htmlmin({ collapseWhitespace: true, removeComments: true }))
         .pipe(gulp.dest('./'));
 });
 
 // Запуск слідкування за змінами
 gulp.task('watch', function () {
-    gulp.watch(src.sass, gulp.series('styles'));
-    gulp.watch(src.js, gulp.series('scripts'));
-    gulp.watch(src.images, gulp.series('images'));
+    gulp.watch(src.sass, gulp.series('styles')).on('change', browserSync.reload);
+    gulp.watch(src.js, gulp.series('scripts')).on('change', browserSync.reload);
+    gulp.watch(src.images, gulp.series('images')).on('change', browserSync.reload);
+    gulp.watch(src.html, gulp.series('minify-html')).on('change', browserSync.reload);
     // Додайте інші слідкуючі завдання, якщо потрібно
 });
 
 // Завдання за замовчуванням
-gulp.task('default', gulp.series('styles', 'scripts', 'images', 'watch'));
+gulp.task('default', gulp.parallel('styles', 'scripts', 'images', 'browser-sync', 'watch'));
 
 // Завдання для створення білда для продакшену
-gulp.task('build', gulp.series('styles', 'scripts', 'images', 'hash', 'update-references', 'minify-html'));
+gulp.task('build', gulp.series('styles', 'scripts', 'images', 'minify-html'));
